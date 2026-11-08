@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Atelier 3D Jewelry Studio</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #FCF9F5;
+      font-family: 'Montserrat', sans-serif, -apple-system, BlinkMacSystemFont;
+    }
+    #webgl-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      z-index: 1;
+    }
+    /* Compact Floating Dock <= 15% Viewport footprint using solid rgba */
+    #dock {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 24px);
+      max-width: 480px;
+      background: rgba(252, 249, 245, 0.94);
+      border: 1px solid #E8E2D9;
+      border-radius: 4px;
+      padding: 8px 12px;
+      z-index: 10;
+      box-shadow: 0 4px 18px rgba(41, 37, 34, 0.08);
+      transition: all 0.25s ease-out;
+    }
+    #dock.collapsed {
+      transform: translateX(-50%) translateY(calc(100% - 32px));
+    }
+    .dock-handle {
+      width: 100%;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .dock-pill {
+      width: 36px;
+      height: 3px;
+      background: #82746F;
+      border-radius: 2px;
+    }
+    .dock-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .dock-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      color: #745548;
+      text-transform: uppercase;
+    }
+    .dock-subtitle {
+      font-size: 9px;
+      color: #6B6560;
+      letter-spacing: 0.5px;
+    }
+    .dock-row {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      scrollbar-width: none;
+    }
+    .dock-row::-webkit-scrollbar {
+      display: none;
+    }
+    .btn-chip {
+      background: #FFFFFF;
+      border: 1px solid #E8E2D9;
+      border-radius: 2px;
+      padding: 5px 9px;
+      font-size: 10px;
+      font-weight: 500;
+      color: #292522;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .btn-chip.active {
+      background: #292522;
+      border-color: #292522;
+      color: #FAF7F3;
+    }
+    .swatch-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      border: 1px solid rgba(0,0,0,0.15);
+    }
+    /* Brand watermark */
+    #brand-tag {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      z-index: 5;
+      pointer-events: none;
+    }
+    #brand-tag h1 {
+      font-family: 'Playfair Display', serif, Georgia;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 2px;
+      color: #1C1C1A;
+    }
+    #brand-tag p {
+      font-size: 8px;
+      letter-spacing: 1.2px;
+      color: #82746F;
+      text-transform: uppercase;
+    }
+    /* 360 Hint */
+    #hint-360 {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      z-index: 5;
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid #E8E2D9;
+      border-radius: 2px;
+      padding: 3px 8px;
+      font-size: 9px;
+      letter-spacing: 1px;
+      color: #745548;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="brand-tag">
+    <h1>ATELIER</h1>
+    <p>3D Bespoke Monograph</p>
+  </div>
+  <div id="hint-360">Drag to Orbit • Pinch to Zoom</div>
+
+  <div id="webgl-container"></div>
+
+  <!-- Compact Viewport-First Dock (<= 15% viewport height) -->
+  <div id="dock">
+    <div class="dock-handle" onclick="toggleDock()">
+      <div class="dock-pill"></div>
+    </div>
+    <div class="dock-header">
+      <span class="dock-title" id="active-spec">18K Yellow Gold • Oval Diamond</span>
+      <span class="dock-subtitle">Place Vendôme Studio</span>
+    </div>
+    
+    <div class="dock-row" style="margin-bottom: 6px;">
+      <button class="btn-chip active" id="btn-gold" onclick="setMetal('yellow_gold')">
+        <span class="swatch-dot" style="background:#D4AF37;"></span>18K Yellow
+      </button>
+      <button class="btn-chip" id="btn-rose" onclick="setMetal('rose_gold')">
+        <span class="swatch-dot" style="background:#B76E79;"></span>18K Rose
+      </button>
+      <button class="btn-chip" id="btn-plat" onclick="setMetal('platinum')">
+        <span class="swatch-dot" style="background:#E5E4E2;"></span>Pt950
+      </button>
+      <button class="btn-chip" id="btn-white" onclick="setMetal('white_gold')">
+        <span class="swatch-dot" style="background:#F2F3F4;"></span>18K White
+      </button>
+    </div>
+
+    <div class="dock-row">
+      <button class="btn-chip active" id="btn-stone-dia" onclick="setStone('diamond')">Diamond</button>
+      <button class="btn-chip" id="btn-stone-sap" onclick="setStone('sapphire')">Ceylon Sapphire</button>
+      <button class="btn-chip" id="btn-stone-eme" onclick="setStone('emerald')">Colombian Emerald</button>
+      <button class="btn-chip" id="btn-stone-can" onclick="setStone('canary')">Canary Gold</button>
+      <button class="btn-chip" id="btn-autorotate" onclick="toggleRotation()">Autorotate: On</button>
+    </div>
+  </div>
+
+  <script src="three.min.js"></script>
+  <script src="OrbitControls.js"></script>
+  <script src="RoomEnvironment.js"></script>
+
+  <script>
+    // --- Setup Scene & Renderer with Studio PBR ---
+    const container = document.getElementById('webgl-container');
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xFCF9F5);
+    scene.fog = new THREE.FogExp2(0xFCF9F5, 0.04);
+
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 50);
+    camera.position.set(0, 2.2, 5.2);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // Studio Environment using RoomEnvironment & PMREMGenerator
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    pmremGenerator.compileEquirectangularShader();
+    if (typeof THREE.RoomEnvironment !== 'undefined') {
+      const roomEnv = new THREE.RoomEnvironment();
+      scene.environment = pmremGenerator.fromScene(roomEnv, 0.04).texture;
+    }
+
+    // Damped OrbitControls
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.enablePan = false;
+    controls.minDistance = 2.5;
+    controls.maxDistance = 8.5;
+    controls.maxPolarAngle = Math.PI / 2 + 0.05; // Don't go below ground
+    controls.target.set(0, 0.7, 0);
+
+    // Studio PBR Lighting
+    const keyLight = new THREE.DirectionalLight(0xFFF6EA, 1.8);
+    keyLight.position.set(3.5, 6.0, 4.0);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.width = 1024;
+    keyLight.shadow.mapSize.height = 1024;
+    keyLight.shadow.camera.near = 1;
+    keyLight.shadow.camera.far = 15;
+    keyLight.shadow.camera.left = -2;
+    keyLight.shadow.camera.right = 2;
+    keyLight.shadow.camera.top = 2;
+    keyLight.shadow.camera.bottom = -2;
+    keyLight.shadow.bias = -0.0005;
+    scene.add(keyLight);
+
+    const hemiLight = new THREE.HemisphereLight(0xFAF7F3, 0x423C37, 0.85);
+    scene.add(hemiLight);
+
+    const diamondRimLight = new THREE.DirectionalLight(0xEAF2FF, 1.4);
+    diamondRimLight.position.set(-3.5, 5.0, -3.0);
+    scene.add(diamondRimLight);
+
+    const sparkleSparkLight = new THREE.PointLight(0xFFFFFF, 1.5, 4);
+    sparkleSparkLight.position.set(0.6, 2.2, 1.2);
+    scene.add(sparkleSparkLight);
+
+    // --- Procedural Canvas Texture Generation (No 404 External URLs) ---
+    // 1. Soft Radial Contact Shadow Texture
+    const shadowCanvas = document.createElement('canvas');
+    shadowCanvas.width = 256;
+    shadowCanvas.height = 256;
+    const sctx = shadowCanvas.getContext('2d');
+    const shadowGrad = sctx.createRadialGradient(128, 128, 10, 128, 128, 120);
+    shadowGrad.addColorStop(0, 'rgba(41, 37, 34, 0.45)');
+    shadowGrad.addColorStop(0.35, 'rgba(41, 37, 34, 0.22)');
+    shadowGrad.addColorStop(0.7, 'rgba(41, 37, 34, 0.08)');
+    shadowGrad.addColorStop(1, 'rgba(41, 37, 34, 0.0)');
+    sctx.fillStyle = shadowGrad;
+    sctx.fillRect(0, 0, 256, 256);
+    const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
+
+    // 2. Velvet Pedestal Subtle Noise Texture
+    const velvetCanvas = document.createElement('canvas');
+    velvetCanvas.width = 128;
+    velvetCanvas.height = 128;
+    const vctx = velvetCanvas.getContext('2d');
+    vctx.fillStyle = '#FAF7F3';
+    vctx.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 400; i++) {
+      vctx.fillStyle = Math.random() > 0.5 ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)';
+      vctx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+    }
+    const velvetBump = new THREE.CanvasTexture(velvetCanvas);
+    velvetBump.wrapS = THREE.RepeatWrapping;
+    velvetBump.wrapT = THREE.RepeatWrapping;
+    velvetBump.repeat.set(4, 4);
+
+    // Presentation Turntable
+    const pedestalGeo = new THREE.CylinderGeometry(2.2, 2.3, 0.2, 48);
+    const pedestalMat = new THREE.MeshStandardMaterial({
+      color: 0xF7F4EF,
+      roughness: 0.85,
+      metalness: 0.02,
+      bumpMap: velvetBump,
+      bumpScale: 0.003
+    });
+    const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
+    pedestal.position.y = -0.1;
+    pedestal.receiveShadow = true;
+    scene.add(pedestal);
+
+    // Contact Shadow Plane
+    const shadowPlaneGeo = new THREE.PlaneGeometry(3.2, 3.2);
+    const shadowPlaneMat = new THREE.MeshBasicMaterial({
+      map: shadowTexture,
+      transparent: true,
+      depthWrite: false
+    });
+    const shadowMesh = new THREE.Mesh(shadowPlaneGeo, shadowPlaneMat);
+    shadowMesh.rotation.x = -Math.PI / 2;
+    shadowMesh.position.y = 0.005;
+    scene.add(shadowMesh);
+
+    // --- Composite 12-Part Procedural Luxury Solitaire Ring ---
+    const ringRoot = new THREE.Group();
+    scene.add(ringRoot);
+
+    // Define Gold Materials with varying roughness/metalness
+    const metalPresets = {
+      yellow_gold: { color: 0xD4AF37, roughness: 0.16, metalness: 0.96, specName: "18K Recycled Yellow Gold" },
+      rose_gold: { color: 0xB76E79, roughness: 0.18, metalness: 0.94, specName: "18K Atelier Rose Gold" },
+      platinum: { color: 0xE5E4E2, roughness: 0.12, metalness: 0.98, specName: "Platinum 950 Pure" },
+      white_gold: { color: 0xF0F0F2, roughness: 0.15, metalness: 0.96, specName: "18K Rhodium White Gold" }
+    };
+
+    let currentMetal = 'yellow_gold';
+    const shankMaterial = new THREE.MeshStandardMaterial({
+      color: metalPresets.yellow_gold.color,
+      roughness: metalPresets.yellow_gold.roughness,
+      metalness: metalPresets.yellow_gold.metalness,
+      envMapIntensity: 1.4
+    });
+
+    const prongMaterial = new THREE.MeshStandardMaterial({
+      color: metalPresets.yellow_gold.color,
+      roughness: 0.11,
+      metalness: 0.99,
+      envMapIntensity: 1.6
+    });
+
+    // Gemstone Physical Materials with transmission & IOR
+    const stonePresets = {
+      diamond: {
+        color: 0xFFFFFF,
+        attenuationColor: 0xF0F8FF,
+        transmission: 0.96,
+        roughness: 0.0,
+        metalness: 0.0,
+        ior: 2.417,
+        reflectivity: 0.95,
+        dispersion: 0.044,
+        specName: "1.75ct F / VVS1 Oval Diamond"
+      },
+      sapphire: {
+        color: 0x183059,
+        attenuationColor: 0x0C1E40,
+        transmission: 0.75,
+        roughness: 0.03,
+        metalness: 0.05,
+        ior: 1.77,
+        reflectivity: 0.85,
+        dispersion: 0.018,
+        specName: "2.80ct Ceylon Royal Sapphire"
+      },
+      emerald: {
+        color: 0x097969,
+        attenuationColor: 0x034F40,
+        transmission: 0.80,
+        roughness: 0.04,
+        metalness: 0.03,
+        ior: 1.58,
+        reflectivity: 0.8,
+        dispersion: 0.014,
+        specName: "2.10ct Colombian Muzo Emerald"
+      },
+      canary: {
+        color: 0xFFD700,
+        attenuationColor: 0xF5B000,
+        transmission: 0.92,
+        roughness: 0.01,
+        metalness: 0.0,
+        ior: 2.417,
+        reflectivity: 0.92,
+        dispersion: 0.04,
+        specName: "1.85ct Vivid Fancy Canary Diamond"
+      }
+    };
+
+    let currentStone = 'diamond';
+    const diamondMaterial = new THREE.MeshPhysicalMaterial({
+      color: stonePresets.diamond.color,
+      transmission: stonePresets.diamond.transmission,
+      opacity: 1.0,
+      transparent: true,
+      roughness: stonePresets.diamond.roughness,
+      metalness: stonePresets.diamond.metalness,
+      ior: stonePresets.diamond.ior,
+      reflectivity: stonePresets.diamond.reflectivity,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.0,
+      envMapIntensity: 2.5
+    });
+
+    const paveMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xFFFFFF,
+      transmission: 0.9,
+      transparent: true,
+      roughness: 0.02,
+      ior: 2.4,
+      envMapIntensity: 2.0
+    });
+
+    // PART 1: The Ring Band (Shank) - Comfort-fit curved profile
+    const ringRadius = 0.9;
+    const tubeRadius = 0.095;
+    const shankGeo = new THREE.TorusGeometry(ringRadius, tubeRadius, 24, 72);
+    const shankMesh = new THREE.Mesh(shankGeo, shankMaterial);
+    shankMesh.castShadow = true;
+    shankMesh.receiveShadow = true;
+    ringRoot.add(shankMesh);
+
+    // PART 2 & 3: Left and Right Cathedral Shoulders
+    function createCathedralArch(angle) {
+      const curve = new THREE.CubicBezierCurve3(
+        new THREE.Vector3(Math.cos(angle) * ringRadius, Math.sin(angle) * ringRadius, 0),
+        new THREE.Vector3(Math.cos(angle) * 0.92, 0.95, 0.05),
+        new THREE.Vector3(0.18 * (angle > Math.PI/2 ? -1 : 1), 1.08, 0.03),
+        new THREE.Vector3(0.08 * (angle > Math.PI/2 ? -1 : 1), 1.15, 0)
+      );
+      const tubeGeo = new THREE.TubeGeometry(curve, 16, 0.05, 12, false);
+      const mesh = new THREE.Mesh(tubeGeo, shankMaterial);
+      mesh.castShadow = true;
+      return mesh;
+    }
+    const leftArch = createCathedralArch(Math.PI * 0.58);
+    const rightArch = createCathedralArch(Math.PI * 0.42);
+    ringRoot.add(leftArch);
+    ringRoot.add(rightArch);
+
+    // PART 4: Under-Gallery Collet Basket
+    const colletGeo = new THREE.TorusGeometry(0.38, 0.035, 16, 36);
+    const colletMesh = new THREE.Mesh(colletGeo, shankMaterial);
+    colletMesh.rotation.x = Math.PI / 2;
+    colletMesh.position.set(0, 1.14, 0);
+    colletMesh.castShadow = true;
+    ringRoot.add(colletMesh);
+
+    // Lower gallery rim
+    const lowerColletGeo = new THREE.TorusGeometry(0.24, 0.03, 16, 32);
+    const lowerCollet = new THREE.Mesh(lowerColletGeo, shankMaterial);
+    lowerCollet.rotation.x = Math.PI / 2;
+    lowerCollet.position.set(0, 1.02, 0);
+    lowerCollet.castShadow = true;
+    ringRoot.add(lowerCollet);
+
+    // PARTS 5, 6, 7, 8: Four Slanted Claw Prongs with Spherical Tips
+    const prongsGroup = new THREE.Group();
+    const prongAngles = [Math.PI * 0.25, Math.PI * 0.75, Math.PI * 1.25, Math.PI * 1.75];
+    prongAngles.forEach((ang) => {
+      const prongSingle = new THREE.Group();
+      
+      // Tapered cylinder
+      const pStemGeo = new THREE.CylinderGeometry(0.032, 0.045, 0.38, 12);
+      const pStem = new THREE.Mesh(pStemGeo, prongMaterial);
+      pStem.castShadow = true;
+      prongSingle.add(pStem);
+
+      // Rounded tip
+      const pTipGeo = new THREE.SphereGeometry(0.036, 12, 12);
+      const pTip = new THREE.Mesh(pTipGeo, prongMaterial);
+      pTip.position.y = 0.19;
+      pTip.castShadow = true;
+      prongSingle.add(pTip);
+
+      const rad = 0.34;
+      prongSingle.position.set(Math.cos(ang) * rad, 1.22, Math.sin(ang) * rad);
+      // Incline prong towards stone
+      prongSingle.rotation.z = -Math.cos(ang) * 0.22;
+      prongSingle.rotation.x = Math.sin(ang) * 0.22;
+
+      prongsGroup.add(prongSingle);
+    });
+    ringRoot.add(prongsGroup);
+
+    // PART 9: Hero Center Gemstone (Procedural Faceted Brilliant Solitaire)
+    // Created as custom multi-facet polyhedron: Table, Crown, Girdle, Pavilion & Culet
+    const diamondGroup = new THREE.Group();
+    
+    // Crown Geometry
+    const crownGeo = new THREE.CylinderGeometry(0.38, 0.52, 0.18, 16);
+    const crownMesh = new THREE.Mesh(crownGeo, diamondMaterial);
+    crownMesh.position.y = 1.34;
+    crownMesh.castShadow = true;
+    diamondGroup.add(crownMesh);
+
+    // Table facet cap
+    const tableGeo = new THREE.CircleGeometry(0.38, 16);
+    const tableMesh = new THREE.Mesh(tableGeo, diamondMaterial);
+    tableMesh.rotation.x = -Math.PI / 2;
+    tableMesh.position.y = 1.431;
+    diamondGroup.add(tableMesh);
+
+    // Pavilion Geometry (pointing down to culet)
+    const pavilionGeo = new THREE.ConeGeometry(0.52, 0.42, 16);
+    const pavilionMesh = new THREE.Mesh(pavilionGeo, diamondMaterial);
+    pavilionMesh.rotation.x = Math.PI;
+    pavilionMesh.position.y = 1.04;
+    pavilionMesh.castShadow = true;
+    diamondGroup.add(pavilionMesh);
+
+    // Make oval elongation for hero solitaire
+    diamondGroup.scale.set(0.95, 1.0, 1.2);
+    ringRoot.add(diamondGroup);
+
+    // PART 10: Micro-Pavé Side Diamonds (10 Accent Gems along the Band Shoulders)
+    const paveGroup = new THREE.Group();
+    const paveAngles = [0.38, 0.43, 0.48, 0.53, 0.58, 2.56, 2.61, 2.66, 2.71, 2.76];
+    paveAngles.forEach((a) => {
+      const gemGeo = new THREE.OctahedronGeometry(0.045, 1);
+      const gemMesh = new THREE.Mesh(gemGeo, paveMaterial);
+      const gx = Math.cos(a) * ringRadius;
+      const gy = Math.sin(a) * ringRadius;
+      gemMesh.position.set(gx, gy, tubeRadius * 0.7);
+      gemMesh.rotation.z = a;
+      paveGroup.add(gemMesh);
+    });
+    ringRoot.add(paveGroup);
+
+    // PART 11: Inner Band Hallmark Plate
+    const hallmarkGeo = new THREE.CylinderGeometry(tubeRadius * 0.9, tubeRadius * 0.9, 0.18, 16, 1, true, 0, Math.PI);
+    const hallmarkMesh = new THREE.Mesh(hallmarkGeo, prongMaterial);
+    hallmarkMesh.position.set(0, -ringRadius, 0);
+    ringRoot.add(hallmarkMesh);
+
+    // Position ring upright so bottom sits flush on turntable at y = 0
+    ringRoot.position.set(0, ringRadius + tubeRadius, 0);
+    // Slight initial tilted presentation angle
+    ringRoot.rotation.x = 0.25;
+    ringRoot.rotation.y = 0.6;
+
+    // --- State and Interaction Logic ---
+    let autoRotate = true;
+    let clock = new THREE.Clock();
+
+    function setMetal(key) {
+      if (!metalPresets[key]) return;
+      currentMetal = key;
+      const p = metalPresets[key];
+      shankMaterial.color.setHex(p.color);
+      shankMaterial.roughness = p.roughness;
+      shankMaterial.metalness = p.metalness;
+      prongMaterial.color.setHex(p.color);
+
+      document.querySelectorAll('.dock-row:first-of-type .btn-chip').forEach(b => b.classList.remove('active'));
+      const activeBtn = document.getElementById(key === 'yellow_gold' ? 'btn-gold' : key === 'rose_gold' ? 'btn-rose' : key === 'platinum' ? 'btn-plat' : 'btn-white');
+      if (activeBtn) activeBtn.classList.add('active');
+
+      updateSpecLabel();
+    }
+
+    function setStone(key) {
+      if (!stonePresets[key]) return;
+      currentStone = key;
+      const s = stonePresets[key];
+      diamondMaterial.color.setHex(s.color);
+      diamondMaterial.transmission = s.transmission;
+      diamondMaterial.roughness = s.roughness;
+      diamondMaterial.ior = s.ior;
+
+      document.querySelectorAll('.dock-row:nth-of-type(2) .btn-chip').forEach(b => {
+        if (b.id !== 'btn-autorotate') b.classList.remove('active');
+      });
+      const btnId = 'btn-stone-' + (key === 'diamond' ? 'dia' : key === 'sapphire' ? 'sap' : key === 'emerald' ? 'eme' : 'can');
+      const activeBtn = document.getElementById(btnId);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      updateSpecLabel();
+    }
+
+    function updateSpecLabel() {
+      const metalLabel = metalPresets[currentMetal].specName;
+      const stoneLabel = stonePresets[currentStone].specName;
+      document.getElementById('active-spec').innerText = metalLabel + " • " + stoneLabel;
+    }
+
+    function toggleRotation() {
+      autoRotate = !autoRotate;
+      const btn = document.getElementById('btn-autorotate');
+      btn.innerText = "Autorotate: " + (autoRotate ? "On" : "Off");
+      btn.classList.toggle('active', autoRotate);
+    }
+
+    function toggleDock() {
+      document.getElementById('dock').classList.toggle('collapsed');
+    }
+
+    // Expose Javascript Interface for Android Jetpack Compose bridge
+    window.setMetalFromAndroid = function(metalName) {
+      if (metalName.includes('rose')) setMetal('rose_gold');
+      else if (metalName.includes('plat')) setMetal('platinum');
+      else if (metalName.includes('white')) setMetal('white_gold');
+      else setMetal('yellow_gold');
+    };
+
+    window.setStoneFromAndroid = function(stoneName) {
+      if (stoneName.includes('sapphire')) setStone('sapphire');
+      else if (stoneName.includes('emerald')) setStone('emerald');
+      else if (stoneName.includes('canary')) setStone('canary');
+      else setStone('diamond');
+    };
+
+    // User interaction pause/resume autorotation
+    let isUserDragging = false;
+    renderer.domElement.addEventListener('pointerdown', () => { isUserDragging = true; });
+    window.addEventListener('pointerup', () => { isUserDragging = false; });
+
+    // Window Resize Handling
+    window.addEventListener('resize', onWindowResize, false);
+    function onWindowResize() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+
+    // 60FPS Render Loop with Damped Camera
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+
+      // Smooth auto-rotation when user is not manually orbiting
+      if (autoRotate && !isUserDragging) {
+        ringRoot.rotation.y += 0.006;
+      }
+
+      // Sparkle flare subtle drift
+      sparkleSparkLight.position.x = Math.sin(clock.getElapsedTime() * 1.5) * 1.2;
+      sparkleSparkLight.position.z = Math.cos(clock.getElapsedTime() * 1.5) * 1.2;
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

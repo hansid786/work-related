@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" width="100%" height="100%">
+  <!-- Diamond Monogram Emblem -->
+  <g transform="translate(24, 18)">
+    <!-- Outer Octagonal Facet Crest in Champagne Gold -->
+    <polygon points="32,2 62,32 32,62 2,32" fill="none" stroke="#D6BD9A" stroke-width="1.8" />
+    <polygon points="32,8 56,32 32,56 8,32" fill="none" stroke="#A17E70" stroke-width="1.2" stroke-dasharray="3,2" />
+    
+    <!-- Stylized Royal 'R' in Deep Charcoal & Rose Taupe -->
+    <path d="M22,18 L22,46 M22,18 L34,18 C39,18 42,21 42,26 C42,31 39,34 34,34 L22,34 M32,34 L43,46" 
+          fill="none" stroke="#292522" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+    <!-- Center Sparkling Gem Facet Dot -->
+    <polygon points="32,2 34,7 32,12 30,7" fill="#D6BD9A" />
+    <polygon points="62,32 57,34 52,32 57,30" fill="#D6BD9A" />
+    <polygon points="32,62 30,57 32,52 34,57" fill="#D6BD9A" />
+    <polygon points="2,32 7,30 12,32 7,34" fill="#D6BD9A" />
+  </g>
+
+  <!-- Brand Typography -->
+  <!-- RIVA -->
+  <text x="110" y="48" font-family="'Playfair Display', Georgia, serif" font-size="34" font-weight="500" letter-spacing="9" fill="#1C1C1A">
+    RIVA
+  </text>
+  <!-- JEWELS -->
+  <text x="110" y="70" font-family="'Montserrat', sans-serif" font-size="11.5" font-weight="500" letter-spacing="8" fill="#745548">
+    JEWELS
+  </text>
+  <!-- SUBTITLE -->
+  <text x="210" y="70" font-family="'Montserrat', sans-serif" font-size="9" font-weight="400" letter-spacing="3" fill="#82746F">
+    • FINE JEWELLERY
+  </text>
+</svg>

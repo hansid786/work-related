@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix Riva Jewels",
+  "description": "Official online fine jewellery store for Riva Jewels, featuring bespoke curation, BIS hallmarked high-craftsmanship collections, 3D interactive studio, ring size caliper, and private salon appointments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
